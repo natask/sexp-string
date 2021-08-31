@@ -40,9 +40,9 @@
 ;; (declare-function LIBRARY--query-preamble "ext:LIBRARY" (query) t)
 ;;
 ;; (fset 'LIBRARY--query-string-to-sexp (sexp-string--define-query-string-to-sexp-fn "LIBRARY"))
-;; (fset LIBRARY--transform-query (sexp-string--define-transform-query-fn "LIBRARY"))
-;; (fset LIBRARY--normalize-query (sexp-string--define-normalize-query-fn "LIBRARY"))
-;; (fset LIBRARY--query-preamble (sexp-string--define-query-preamble-fn "LIBRARY"))
+;; (fset 'LIBRARY--transform-query (sexp-string--define-transform-query-fn "LIBRARY" type))
+;; (fset 'LIBRARY--normalize-query (sexp-string--define-normalize-query-fn "LIBRARY"))
+;; (fset 'LIBRARY--query-preamble (sexp-string--define-query-preamble-fn "LIBRARY"))
 
 ;;; Code:
 ;;; vars:
@@ -138,8 +138,8 @@ Borrowed from `org-ql'."
          (boolean-variable (intern-soft (concat library-name "-default-predicate-boolean")))
          (default (intern-soft (concat library-name "-default-predicate")))
          (pexs `((query sum (opt eol))
-                 (sum value  (* (or (and _ "and" _ value `(a b -- (list 'and a b)))
-                                    (and _ "or" _ value `(a b -- (list 'or a b)))
+                 (sum value  (* (or (and _ "`and" _ value `(a b -- (list 'and a b)))
+                                    (and _ "`or" _ value `(a b -- (list 'or a b)))
                                     (and _ value `(a b -- (list ',,boolean-variable a b))))))
                  (value
                   (or term
@@ -162,9 +162,9 @@ Borrowed from `org-ql'."
                  (unquoted-arg (substring (+ (not (or brackets separator "\"" (syntax-class whitespace))) (any))))
                  (negation "!")
                  (separator "," )
-                 (operator (or "and" "or"))
+                 (operator (or "`and" "`or"))
                  (brackets (or "(" ")"))
-                 (_ (* [" \t"]))
+                 (_ (+ [" \t"]))
                  (eol (or  "\n" "\r\n" "\r"))))
          (closure (lambda (input &optional boolean)
                     "Return query parsed from plain query string INPUT.
@@ -197,24 +197,27 @@ Borrowed from `org-ql'."
                         res)))))
     (byte-compile closure)))
 
-(defun sexp-string--define-transform-query-fn (predicates)
-  "Define function `sexp-string--transform-query' for PREDICATES.
-PREDICATES should be the value of `sexp-string-predicates'.
+(defun sexp-string--define-transform-query-fn (library-name type)
+  "Return query transformation for LIBRARY-NAME against TYPE.
+`predicates' should be the value of `sexp-string-predicates'.
 Borrowed from `org-ql'."
-  (let ((transformer-patterns (->> predicates
-                                   (--map (plist-get (cdr it) :transform))
-                                   (-flatten-n 1))))
-    (byte-compile
-     `(lambda (query)
+  (let* ((predicates (intern-soft (concat library-name "-predicates")))
+         (transformer-patterns (->> predicates
+                                (symbol-value)
+                                   (--map (plist-get (cdr it) type))
+                                   (-flatten-n 1)))
+         (closure  `(lambda (query)
         "Return transformed form of QUERY expression.
 This function is defined by calling
 `sexp-string--define-transform-query-fn', which uses transformr forms
 defined in `sexp-string-predicates' by calling `sexp-string-defpred'."
-        (cl-labels ((rec (element)
+        (cl-labels ((rec (element &optional accum)
+                         (ignore accum)
                          (pcase element
                            ,@transformer-patterns
-                           (_ (error "Element didn't match transformer:%S" element)))))
-          (rec query))))))
+                           (_ (error "Element didn't match transformer: %S" element)))))
+          (rec query)))))
+    (byte-compile closure)))
 
 (defun sexp-string--query-sexp-to-string (query)
   "Return a string query for sexp QUERY.
