@@ -1,13 +1,13 @@
 ;;; sexp-string.el --- One to one corrospondence between boolean sexp and string -*- lexical-binding: t; -*-
 ;;
-;; Copyright (C) 2021 Natnael Kahssay
+;; Copyright (C) 2021 Natnael Kahssay, Adam Porter
 ;;
-;; Author: Natnael Kahssay <https://github.com/natask>
+;; Authors: Natnael Kahssay <https://github.com/natask>, Adam Porter <https://github.com/alphapapa/>
 ;; Maintainer: Natnael Kahssay <thisnkk@gmail.com>
 ;; Created: August 26, 2021
 ;; Modified: August 26, 2021
 ;; Version: 0.0.1
-;; Keywords: abbrev bib c calendar comm convenience data docs emulations extensions faces files frames games hardware help hypermedia i18n internal languages lisp local maint mail matching mouse multimedia news outlines processes terminals tex tools unix vc wp
+;; Keywords: tools matching alternate-syntax
 ;; Homepage: https://github.com/savnkk/sexp-string
 ;; Package-Requires: ((emacs "25.1"))
 ;;
@@ -17,6 +17,20 @@
 ;;
 ;;  One to one corrospondence between boolean sexp and string
 ;;
+;;; License:
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 ;;; req;
 (require 'dash)
 (require 'cl-lib)
