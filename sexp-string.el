@@ -142,7 +142,6 @@ E.g.
                                     (sexp-string--collapse-list val op))))
             (_ (list val))))
            lt))
-
 (defun sexp-string--define-query-string-to-sexp-fn (library-name)
   "Define function `sexp-string--query-string-to-sexp' for LIBRARY-NAME.
 Builds the PEG expression using PREDICATES (which should be the
@@ -186,29 +185,26 @@ Borrowed from `org-ql'."
                     ;; HACK: Silence unused lexical variable warnings.
                     (ignore library-name predicates boolean-variable default)
                     (unless (string-empty-p input)
-                      (let* ((old-boolean-variable (symbol-value boolean-variable))
-                             (parsed-sexp
-                              (with-temp-buffer
-                                (insert input)
-                                (goto-char (point-min))
-                                ;; Copied from `peg-parse'.  There is no function in `peg' that
-                                ;; returns a matcher function--every entry point is a macro,
-                                ;; which means that, since we define our PEG rules at runtime when
-                                ;; predicate-names are defined, we either have to use `eval', or we
-                                ;; have to borrow some code.  It ends up that we only have to
-                                ;; borrow this `with-peg-rules' call, which isn't too bad.
-                                (eval `(with-peg-rules ,pexs
-                                         (peg-run (peg ,(caar pexs)) #'peg-signal-failure)))))
-                             (res (progn
-                                    (set boolean-variable (or boolean (symbol-value boolean-variable)))
-                                    (pcase parsed-sexp
-                                      (`(,_) (->> (backquote ,(car parsed-sexp))
-                                                  backquote
-                                                  eval
-                                                  sexp-string-collapse-list))
-                                      (_ nil)))))
-                        (set boolean-variable old-boolean-variable)
-                        res)))))
+                      (let ((parsed-sexp
+                             (with-temp-buffer
+                               (insert input)
+                               (goto-char (point-min))
+                               ;; Copied from `peg-parse'.  There is no function in `peg' that
+                               ;; returns a matcher function--every entry point is a macro,
+                               ;; which means that, since we define our PEG rules at runtime when
+                               ;; predicate-names are defined, we either have to use `eval', or we
+                               ;; have to borrow some code.  It ends up that we only have to
+                               ;; borrow this `with-peg-rules' call, which isn't too bad.
+                               (eval `(with-peg-rules ,pexs
+                                        (peg-run (peg ,(caar pexs)) #'peg-signal-failure))))))
+                        (eval
+                         `(let ((,boolean-variable (or boolean ,boolean-variable)))
+                         (pcase parsed-sexp
+                            (`(,_) (->> `,(backquote ,(car parsed-sexp))
+                                        backquote
+                                        eval
+                                        sexp-string-collapse-list))
+                            (_ nil))) (list (cons 'boolean boolean) (cons 'parsed-sexp parsed-sexp))))))))
     (byte-compile closure)))
 
 (defun sexp-string--define-transform-query-fn (library-name type)
@@ -216,21 +212,21 @@ Borrowed from `org-ql'."
 `predicates' should be the value of `sexp-string-predicates'.
 Borrowed from `org-ql'."
   (let* ((predicates (intern-soft (concat library-name "-predicates")))
-         (transformer-patterns (->> predicates
-                                (symbol-value)
-                                   (--map (plist-get (cdr it) type))
-                                   (-flatten-n 1)))
          (closure  `(lambda (query)
-        "Return transformed form of QUERY expression.
+                      "Return transformed form of QUERY expression.
 This function is defined by calling
 `sexp-string--define-transform-query-fn', which uses transformr forms
 defined in `sexp-string-predicates' by calling `sexp-string-defpred'."
-        (cl-labels ((rec (element &optional accum)
-                         (ignore accum)
-                         (pcase element
-                           ,@transformer-patterns
-                           (_ (error "Element didn't match transformer: %S" element)))))
-          (rec query)))))
+                      (let ((transformer-patterns (->> ,predicates
+                                                     (--map (plist-get (cdr it) ,type))
+                                                     (-flatten-n 1))))
+                     (eval
+                      `(cl-labels ((rec (element &optional accum)
+                                       (ignore accum)
+                                        (pcase element
+                                         ,@transformer-patterns
+                                         (_ (error "Element didn't match transformer: %S" element)))))
+                        (rec query)) (list (cons 'transformer-patterns transformer-patterns) (cons 'query query)))))))
     (byte-compile closure)))
 
 (defun sexp-string--query-sexp-to-string (query)
