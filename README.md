@@ -9,7 +9,7 @@ Wanted to have a convient way to write elisp expressions as a string. Keeping tr
 Convert to and from a string to a boolean elisp expression.
 
 For example,
-"tag:tag1,tag2 title:title1,title2 query1 query2 `or (query3 `and query4)"
+``"tag:tag1,tag2 title:title1,title2 query1 query2 `or (query3 `and query4)"``
 ``` elisp
 (or 
   (and (tag "tag1" "tag2") 
