@@ -4,7 +4,7 @@ Come get your sexp strings. Sexp strings going once, sexp string going twice...
 ```
 
 # Motivation
-I Wanted to have a convenient way to write elisp expressions as a string. Keeping track of parenthesises doesn't make for a good user interface. Based on [org-ql's](https://github.com/alphapaps/org-ql) method.
+I Wanted to have a convenient way to write elisp expressions as a string. Keeping track of parenthesises doesn't make for a good user interface. Based on [org-ql's](https://github.com/alphapapa/org-ql) method.
 
 # What it does
 Convert to and from a string to a boolean elisp expression.
