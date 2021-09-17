@@ -13,7 +13,7 @@ For example,
 
 ``"tag:tag1,tag2 title:title1,title2 query1 query2 `or `(query3 `and query4   `) query5 (to be, or not to be? to not be!)"``
 
-matches
+matches the following under this [predicate](https://github.com/natask/org-roam-search/blob/7004fb06b21c26bda56048d531d629425ce25714/org-roam-search.el#L25).
 
 ``` elisp
 (and
