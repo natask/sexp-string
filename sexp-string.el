@@ -173,7 +173,7 @@ Borrowed from `org-ql'."
                  (keyword-arg (and keyword "=" `(kw -- (intern (concat ":" kw)))))
                  (keyword (substring (+ (not (or brackets brackets2 separator "=" "\"" (syntax-class whitespace))) (any))))
                  (quoted-arg "\"" (substring (+ (not "\"") (any))) "\"")
-                 (unquoted-arg (substring (+ (not (or brackets brackets2 "\"" (syntax-class whitespace))) (any))))
+                 (unquoted-arg (substring (+ (not (or brackets brackets2 separator "\"" (syntax-class whitespace))) (any))))
                  (limited-unquoted-arg (substring (+ (not (or brackets brackets2 separator symbols negation "\"" (syntax-class whitespace))) (any))))
                  (plain-string (list (+ (and (or (substring separator) (substring negation) (substring symbols) (substring brackets) limited-unquoted-arg quoted-arg) (not operator brackets2)))))
 
