@@ -35,6 +35,7 @@
 (require 'dash)
 (require 'cl-lib)
 (require 'subr-x)
+(require 'peg)
 
 ;;; usage:
 ;;; ;; HACK: These functions *will* be defined at runtime, so we silence
