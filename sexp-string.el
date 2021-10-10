@@ -140,21 +140,63 @@ E.g.
             (`(,(and op2 (guard (equal op op2))) . ,rest) (sexp-string--collapse-list rest op))
             ((pred listp) (list (if (member (car val) '(and or))
                                         (sexp-string--collapse-list val (car val))
-                                    (sexp-string--collapse-list val op))))
+                                    (sexp-string--collapse-list val 'nil))))
             (_ (list val))))
            lt))
-(defun sexp-string--define-query-string-to-sexp-fn (library-name)
-  "Define function `sexp-string--query-string-to-sexp' for LIBRARY-NAME.
-Builds the PEG expression using PREDICATES (which should be the
-value of `sexp-string-predicates').
-Borrowed from `org-ql'."
-  (let* ((predicates (intern-soft (concat library-name "-predicates")))
-         (boolean-variable (intern-soft (concat library-name "-default-predicate-boolean")))
-         (default (intern-soft (concat library-name "-default-predicate")))
-         (pexs `((query sum (opt eol))
-                 (sum value  (* (or (and _ "`and" _ value `(a b -- (list 'and a b)))
-                                    (and _ "`or" _ value `(a b -- (list 'or a b)))
-                                    (and _ value `(a b -- (list ',,boolean-variable a b))))))
+
+(defmacro sexp-string--recoll-pexs ()
+  "Implementation of recoll's search syntax."
+ ``((query sum (opt eol))
+                 (sum value  (* (or (and _ and-op _ value `(a b -- (list 'and a b)))
+                                    (and _ or-op _ value `(a b -- (list 'or a b)))
+                                    (and _ value `(a b -- (list boolean-variable a b))))))
+                 (value
+                  (or (and "(" (opt _) sum (opt _) ")")
+                      term
+                      ))
+                 (term (or (and negation (list positive-term)
+                                ;; This is a bit confusing, but it seems to work.  There's probably a better way.
+                                `(pred -- (list 'not (car pred))))
+                           positive-term))
+                 (positive-term (or
+                                    (and predicate-with-args `(pred args -- (cons (intern pred) args)))
+                                    (and predicate-without-args `(pred -- (list (intern pred))))
+                                    (and plain-string `(s -- (list default s)))))
+                 (predicate-with-args (substring predicate) ":" args)
+                 (predicate-without-args (substring predicate) ":")
+                 (predicate (or ,@(sexp-string--predicate-names (reverse predicates))))
+                 (args (list arg (* (or (and and-separator arg `(a b -- (list 'and a b)))
+                                  (and or-separator arg `(a b -- (list 'or a b)))))))
+                 (arg (or keyword-arg quoted-arg unquoted-arg))
+                 (keyword-arg (and keyword "=" `(kw -- (intern (concat ":" kw)))))
+                 (keyword (substring (+ (not (or brackets separator "=" "\"" (syntax-class whitespace))) (any))))
+                 (quoted-arg "\"" (substring (+ (not "\"") (any))) "\"")
+                 (unquoted-arg (substring (+ (not (or brackets separator "\"" (syntax-class whitespace))) (any))))
+                 (plain-string (or unquoted-arg quoted-arg separator))
+                 (operator (or and-op or-op))
+                 (separator (or or-separator and-separator))
+                 (negation "-")
+                 (or-separator "/")
+                 (and-separator ",")
+                 (and-op "AND")
+                 (or-op "OR")
+                 (brackets (or "(" ")"))
+                 (_ (+ [" \t"]))
+                 (eol (or  "\n" "\r\n" "\r"))))
+
+(defmacro sexp-string--custom-pexs ()
+  "Custom pexs that focuses on plain entries.
+It has the least cognative load when looking to enter a plain string query
+that potentially conflicts with pex rules.
+For example, the following entry
+\"this is a plain entry with (many types) of !symbols
+that would, when parsed normally, conflict with pex rules\"
+
+It would be interpreted verbatim."
+ ``((query sum (opt eol))
+                 (sum value  (* (or (and _ and-op _ value `(a b -- (list 'and a b)))
+                                    (and _ or-op _ value `(a b -- (list 'or a b)))
+                                    (and _ value `(a b -- (list boolean-variable a b))))))
                  (value
                   (or (and "`(" (opt _) sum (opt _) "`)")
                       term
@@ -166,10 +208,10 @@ Borrowed from `org-ql'."
                  (positive-term (or
                                     (and predicate-with-args `(pred args -- (cons (intern pred) args)))
                                     (and predicate-without-args `(pred -- (list (intern pred))))
-                                    (and plain-string `(s -- (cons ',,default s)))))
+                                    (and plain-string `(s -- (cons default s)))))
                  (predicate-with-args (substring predicate) ":" args)
                  (predicate-without-args (substring predicate) ":")
-                 (predicate (or ,@(sexp-string--predicate-names (reverse (symbol-value predicates)))))
+                 (predicate (or ,@(sexp-string--predicate-names (reverse predicates))))
                  (args (list (+ (and (or keyword-arg quoted-arg unquoted-arg) (opt separator)))))
                  (keyword-arg (and keyword "=" `(kw -- (intern (concat ":" kw)))))
                  (keyword (substring (+ (not (or brackets brackets2 separator "=" "\"" (syntax-class whitespace))) (any))))
@@ -181,18 +223,36 @@ Borrowed from `org-ql'."
                  (negation "!")
                  (symbols (or "?" "."))
                  (separator "," )
+                 (operator (or and-op or-op))
+                 (and-op "`and")
+                 (or-op "`or")
                  (operator (or "`and" "`or"))
                  (brackets (or "(" ")"))
                  (brackets2 (or "`(" "`)"))
                  (_ (+ [" \t"]))
                  (eol (or  "\n" "\r\n" "\r"))))
+
+(defun sexp-string--define-query-string-to-sexp-fn (library-name)
+  "Define function `sexp-string--query-string-to-sexp' for LIBRARY-NAME.
+Builds the PEG expression using PREDICATES (which should be the
+value of `sexp-string-predicates').
+Borrowed from `org-ql'."
+  (let* ((predicates (intern-soft (concat library-name "-predicates")))
+         (default (intern-soft (concat library-name "-default-predicate")))
+         (boolean-variable (intern-soft (concat library-name "-default-predicate-boolean")))
+         (pexs (intern-soft (concat library-name "-pex-macro")))
          (closure (lambda (input &optional boolean)
                     "Return query parsed from plain query string INPUT.
   Multiple predicate-names are combined with BOOLEAN (default: `and')."
                     ;; HACK: Silence unused lexical variable warnings.
-                    (ignore library-name predicates boolean-variable default)
+                    (ignore library-name)
                     (unless (string-empty-p input)
-                      (let ((parsed-sexp
+                      (let* ((boolean-variable (or boolean (symbol-value boolean-variable) 'and))
+                             (predicates (symbol-value predicates))
+                             (default (or (symbol-value default) (car (-last-item predicates))))
+                             (pexs (or (symbol-value pexs) 'sexp-string--custom-pexs))
+                             (pexs (eval `(,pexs) (list (cons 'predicates predicates) )))
+                            (parsed-sexp
                              (with-temp-buffer
                                (insert input)
                                (goto-char (point-min))
@@ -203,15 +263,11 @@ Borrowed from `org-ql'."
                                ;; have to borrow some code.  It ends up that we only have to
                                ;; borrow this `with-peg-rules' call, which isn't too bad.
                                (eval `(with-peg-rules ,pexs
-                                        (peg-run (peg ,(caar pexs)) #'peg-signal-failure))))))
-                        (eval
-                         `(let ((,boolean-variable (or boolean ,boolean-variable)))
+                                        (peg-run (peg ,(caar pexs)) #'peg-signal-failure)) (list (cons 'boolean-variable boolean-variable) (cons 'default default))))))
                          (pcase parsed-sexp
-                            (`(,_) (->> `,(backquote ,(car parsed-sexp))
-                                        backquote
-                                        eval
+                            (`(,_) (->> (car parsed-sexp)
                                         sexp-string-collapse-list))
-                            (_ nil))) (list (cons 'boolean boolean) (cons 'parsed-sexp parsed-sexp))))))))
+                            (_ nil)))))))
     (byte-compile closure)))
 
 (defun sexp-string--define-transform-query-fn (library-name type)
