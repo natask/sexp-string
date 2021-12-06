@@ -37,67 +37,7 @@
 (require 'subr-x)
 (require 'peg)
 
-;;; usage:
-;;; ;; HACK: These functions *will* be defined at runtime, so we silence
-;; compiler warnings about them:
-;; (defvar LIBRARY-predicates
-;; '((or  :name or)
-;;   (and :name and)
-;;   (titles :name titles :aliases '(title))
-;;   (tags :name tags :aliases '(tag))
-;;   (both :name both)))
-;; (defvar LIBRARY-default-predicate-boolean 'and)
-;; (defvar LIBRARY-default-predicate 'both)
-;;
-;; (declare-function LIBRARY--query-string-to-sexp "ext:LIBRARY" (query) t)
-;; (declare-function LIBRARY--transform-query "ext:LIBRARY" (query) t)
-;; (declare-function LIBRARY--normalize-query "ext:LIBRARY" (query) t)
-;; (declare-function LIBRARY--query-preamble "ext:LIBRARY" (query) t)
-;;
-;; (fset 'LIBRARY--query-string-to-sexp (sexp-string--define-query-string-to-sexp-fn "LIBRARY"))
-;; (fset 'LIBRARY--transform-query (sexp-string--define-transform-query-fn "LIBRARY" type))
-;; (fset 'LIBRARY--normalize-query (sexp-string--define-normalize-query-fn "LIBRARY"))
-;; (fset 'LIBRARY--query-preamble (sexp-string--define-query-preamble-fn "LIBRARY"))
-
 ;;; Code:
-;;; vars:
-(defvar sexp-string-use-preamble t
-  ;; MAYBE: Naming things is hard.  There must be a better term than "preamble."
-  "Use query preambles to speed up searches.
-May be disabled for debugging, benchmarks, etc.")
-
-(defvar sexp-string-predicates 'nil
-  ;; '((or  :name or
-  ;;        :transform
-  ;;        ((`(or . ,clauses) (--> clauses
-  ;;                                (cl-reduce (lambda (x y) (concat x " or " y)) (mapcar #'rec it))
-  ;;                                (concat "(" it ")")))))
-  ;;   (and :name and
-  ;;        :transform
-  ;;        ((`(and . ,clauses) (--> clauses
-  ;;                                 (cl-reduce (lambda (x y) (concat x " and " y)) (mapcar #'rec it))
-  ;;                                 (concat "(" it ")")))))
-  ;;   (url :name url :docstring "Return non-nil if current heading has one or more of TAGS (a list of strings).\nTests both inherited and local tags." :args (&rest titles)
-  ;;        :transform
-  ;;        ((`(url . ,rest)
-  ;;          (--> rest
-  ;;               (mapcar (apply-partially #'format "url like '%%%%%s%%%%'") it)
-  ;;               (cl-reduce (lambda (x y) (concat x " or " y)) it)
-  ;;               (concat "(" it ")")))))
-  ;;   (regexp :name regexp  :docstring "Return non-nil if current heading has one or more of TAGS (a list of strings).\nTests both inherited and local tags." :args (&rest regexp)
-  ;;           :transform
-  ;;           ((`(regexp . ,rest)
-  ;;             (--> rest
-  ;;                  (mapcar (lambda (x) (concat (format "title like '%%%% %s%%%%'" x)
-  ;;                                              " or "
-  ;;                                              (format "description like '%%%% %s%%%%'" x))) it)
-  ;;                  (cl-reduce (lambda (x y) (concat x " or " y)) it)
-  ;;                  (concat "(" it ")"))))))
-  )
-
-(defvar sexp-string-default-predicate-boolean 'and)
-;;; Code:
-
 (defun sexp-string--predicate-names (predicates)
   "Get predicate names for PREDICATES."
   (let* (
@@ -234,48 +174,37 @@ Is interpreted verbatim."
                  (_ (+ [" \t"]))
                  (eol (or  "\n" "\r\n" "\r"))))
 
-(defun sexp-string--define-query-string-to-sexp-fn (library-name)
-  "Builds the PEG expression function for LIBRARY-NAME.
+(defun sexp-string--define-query-string-to-sexp (&keys input predicates default-predicate default-boolean pexs-function)
+  "Parse string INPUT based upon
 
-Expects the following variables to be defined:
+predicates        -> list of predicates
+default-predicate -> default predicate
+default-boolean   -> default boolean
 
-`library-name'-predicates        -> list of predicates
-`library-name'-default-predicate -> default predicate
-`library-name'-default-boolean   -> default boolean
 
 Borrowed from `org-ql'."
-  (let* ((predicates (intern-soft (concat library-name "-predicates")))
-         (default-predicate (intern-soft (concat library-name "-default-predicate")))
-         (default-boolean (intern-soft (concat library-name "-default-boolean")))
-         (pexs (intern-soft (concat library-name "-pexs-function")))
-         (closure (lambda (input &optional boolean)
-                    "Return query parsed from plain query string INPUT.
-  Multiple predicate-names are combined with BOOLEAN (default: `and')."
-                    ;; HACK: Silence unused lexical variable warnings.
-                    (ignore library-name)
-                    (unless (string-empty-p input)
-                      (let* ((default-boolean (or boolean (symbol-value default-boolean) 'and))
-                             (predicates (symbol-value predicates))
-                             (default-predicate (or (symbol-value default-predicate) (car (-last-item predicates))))
-                             (pexs (or (symbol-value pexs) 'sexp-string--custom-pexs))
-                             (pexs (funcall pexs predicates))
-                            (parsed-sexp
-                             (with-temp-buffer
-                               (insert input)
-                               (goto-char (point-min))
-                               ;; Copied from `peg-parse'.  There is no function in `peg' that
-                               ;; returns a matcher function--every entry point is a macro,
-                               ;; which means that, since we define our PEG rules at runtime when
-                               ;; predicate-names are defined, we either have to use `eval', or we
-                               ;; have to borrow some code.  It ends up that we only have to
-                               ;; borrow this `with-peg-rules' call, which isn't too bad.
-                               (eval `(with-peg-rules ,pexs
-                                        (peg-run (peg ,(caar pexs)) #'peg-signal-failure)) (list (cons 'default-predicate default-predicate) (cons 'default-boolean default-boolean))))))
-                         (pcase parsed-sexp
-                           (`(,_) (->> `,(backquote ,(car parsed-sexp))
-                                        sexp-string-collapse-list))
-                            (_ nil)))))))
-    (byte-compile closure)))
+  (let* ((unless (string-empty-p input)
+           (let* ((default-boolean (or boolean (symbol-value default-boolean) 'and))
+                  (predicates (symbol-value predicates))
+                  (default-predicate (or (symbol-value default-predicate) (car (-last-item predicates))))
+                  (pexs (or (symbol-value pexs) 'sexp-string--custom-pexs))
+                  (pexs (funcall pexs predicates))
+                  (parsed-sexp
+                   (with-temp-buffer
+                     (insert input)
+                     (goto-char (point-min))
+                     ;; Copied from `peg-parse'.  There is no function in `peg' that
+                     ;; returns a matcher function--every entry point is a macro,
+                     ;; which means that, since we define our PEG rules at runtime when
+                     ;; predicate-names are defined, we either have to use `eval', or we
+                     ;; have to borrow some code.  It ends up that we only have to
+                     ;; borrow this `with-peg-rules' call, which isn't too bad.
+                     (eval `(with-peg-rules ,pexs
+                              (peg-run (peg ,(caar pexs)) #'peg-signal-failure)) (list (cons 'default-predicate default-predicate) (cons 'default-boolean default-boolean))))))
+             (pcase parsed-sexp
+               (`(,_) (->> `,(backquote ,(car parsed-sexp))
+                           sexp-string-collapse-list))
+               (_ nil)))))))
 
 (defun sexp-string--define-transform-query-fn (library-name type)
   "Return query transformation for LIBRARY-NAME against TYPE.
