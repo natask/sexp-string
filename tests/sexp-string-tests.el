@@ -81,21 +81,24 @@
                 '(and (or (first "hello") (and (second "there" "hello" "man with two feet") (not (first "aka" "friend"))))
                       (first "this") (not (first "right")) (first "here") (first "verbatum 2nd:there")
                       (first "(" "what" ",") (first "is" ".") (first "or") (first "going") (first "and") (first "on" "?" ")")))))
-    ;; TODO: not implemented yet
-    ;; (it "handles new line"
-    ;;   (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "well man\nsucks") args))
-    ;;           :to-equal
-    ;;           '(and (first "well") (first "man") (first "sucks"))))
-    ;; TODO: not implemented yet
-    ;; (it "boolean within a predicate"
-    ;;   (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "`(2nd:there/here,fellow/wondering or !1st:friend/man`) this") args))
-    ;;           :to-equal
-    ;;           '(and (or (second (and (or (and (or "there" "here") "fellow") "wondering"))) (first (or "friend" "man"))) (first "this"))))
-    ;; TODO: not implemented yet
-    ;; (it "braces within a predicate"
-    ;;   (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "(2nd:`(there/here),(fellow/wondering) -1st:friend/man)) this -right here") args))
-    ;;           :to-equal
-    ;;           '(and (or (first "hello") (and (second (and (or "there" "here") (or "fellow wondering"))) (not (first (or "friend" "man")))) (first "this") (not (first "right")) (first "here")))))
+    ;; TODO: handles new line
+    (it "handles new line"
+      ;; (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "well man\nsucks") args))
+      ;;         :to-equal
+      ;;         '(and (first "well") (first "man") (first "sucks")))
+      )
+    ;; TODO: boolean within a predicate
+    (it "boolean within a predicate"
+      ;; (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "`(2nd:there/here,fellow/wondering or !1st:friend/man`) this") args))
+      ;;         :to-equal
+      ;;         '(and (or (second (and (or (and (or "there" "here") "fellow") "wondering"))) (first (or "friend" "man"))) (first "this")))
+      )
+    ;; TODO: braces within a predicate
+    (it "braces within a predicate"
+      ;;   (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "(2nd:`(there/here),(fellow/wondering) -1st:friend/man)) this -right here") args))
+      ;;           :to-equal
+      ;;           '(and (or (first "hello") (and (second (and (or "there" "here") (or "fellow wondering"))) (not (first (or "friend" "man")))) (first "this") (not (first "right")) (first "here"))))
+      )
     )
   (describe "recoll pex"
     (let* ((predicates '((or  :name or)
@@ -124,17 +127,49 @@
         (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "(hello OR (2nd:there/here,fellow/wondering -1st:friend/\"man or woman\")) \"verbatim 2nd:there\" this -right here") args))
                 :to-equal
                 '(and (or (first "hello") (and (second (or (and (or "there" "here") "fellow") "wondering")) (not (first (or "friend" "man or woman"))))) (first "verbatim 2nd:there") (first "this") (not (first "right")) (first "here"))))
-      ;; TODO: not implemented yet
-      ;; (it "handles new line"
-      ;;   (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "well man\nsucks") args))
-      ;;           :to-equal
-      ;;           '(and (first "well") (first "man") (first "sucks"))))
-      ;; TODO: not implemented yet
-      ;; (it "braces within a predicate"
-      ;;   (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "(hello OR (2nd:(there/here),(fellow/wondering) -1st:friend/man)) this -right here") args))
-      ;;           :to-equal
-      ;;           '(and (or (first "hello") (and (second (and (or "there" "here") (or "fellow wondering"))) (not (first (or "friend" "man")))) (first "this") (not (first "right")) (first "here")))))
+      ;; TODO: handles new line
+      (it "handles new line"
+        ;; (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "well man\nsucks") args))
+        ;;         :to-equal
+        ;;         '(and (first "well") (first "man") (first "sucks")))
+        )
+      ;; TODO: braces within a predicate
+      (it "braces within a predicate"
+        ;; (expect (apply 'sexp-string--query-string-to-sexp (append '(:input "(hello OR (2nd:(there/here),(fellow/wondering) -1st:friend/man)) this -right here") args))
+        ;;         :to-equal
+        ;;         '(and (or (first "hello") (and (second (and (or "there" "here") (or "fellow wondering"))) (not (first (or "friend" "man")))) (first "this") (not (first "right")) (first "here"))))
+        )
       )))
+
+(describe "sexp-string-sexp-to-query-string"
+  (let* ((predicates '((or  :name or)
+                       (and :name and)
+                       (not :name not)
+                       (second :name second :aliases (2nd))
+                       (first :name first :aliases (1st))))
+         (default-predicate 'first)
+         (default-boolean 'and)
+         (args (list :predicates predicates :default-predicate default-predicate :default-boolean default-boolean)))
+    (it "works"
+      (let* ((arg1 "!first:world,here second:hello,best")
+             (res1 (apply 'sexp-string--query-string-to-sexp (append `(:input ,arg1) args)))
+             (res2 (sexp-string--query-sexp-to-string res1))
+             (res3 (apply 'sexp-string--query-string-to-sexp (append `(:input ,res2) args))) ;; goes round about
+             (res4 (sexp-string--query-sexp-to-string res3)))
+        (expect arg1
+                :to-equal
+                res4)))
+    (it "should standardize name after or before?"
+      (let* ((arg1 "!first:world,here 2nd:hello,best")
+             (res1 (apply 'sexp-string--query-string-to-sexp (append `(:input ,arg1) args)))
+             (res2 (sexp-string--query-sexp-to-string res1))
+             (res3 (apply 'sexp-string--query-string-to-sexp (append `(:input ,res2) args))) ;; goes round about
+             (res4 (sexp-string--query-sexp-to-string res3)))
+        (expect arg1
+                :to-equal
+                res4)))
+    ;; TODO: for any format
+    (it "for any format")))
 
 (provide 'sexp-string-tests)
 ;;; sexp-string-tests.el ends here
