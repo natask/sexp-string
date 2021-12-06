@@ -9,7 +9,7 @@
 ;; Version: 0.0.1
 ;; Keywords: tools matching alternate-syntax
 ;; Homepage: https://github.com/savnkk/sexp-string
-;; Package-Requires: ((emacs "25.1"))
+;; Package-Requires: ((emacs "25.1") (peg))
 ;;
 ;; This file is not part of GNU Emacs.
 ;;
@@ -288,15 +288,16 @@ This function is defined by calling
 `sexp-string--define-transform-query-fn', which uses transformr forms
 defined in `sexp-string-predicates' by calling `sexp-string-defpred'."
                       (let ((transformer-patterns (->> ,predicates
-                                                     (--map (plist-get (cdr it) ,type))
-                                                     (-flatten-n 1))))
-                     (eval
-                      `(cl-labels ((rec (element &optional accum)
-                                       (ignore accum)
-                                        (pcase element
-                                         ,@transformer-patterns
-                                         (_ (error "Element didn't match transformer: %S" element)))))
-                        (rec query)) (list (cons 'transformer-patterns transformer-patterns) (cons 'query query)))))))
+                                                       (--map (plist-get (cdr it) ,type))
+                                                       (-flatten-n 1))))
+                        (->> (eval
+                              `(cl-labels ((rec (element &optional accum)
+                                                (ignore accum)
+                                                (pcase element
+                                                  ,@transformer-patterns
+                                                  (_ (error "Element didn't match transformer: %S" element)))))
+                                 (rec query)) (list (cons 'transformer-patterns transformer-patterns) (cons 'query query)))
+                             (sexp-string-collapse-list))))))
     (byte-compile closure)))
 
 (defun sexp-string--query-sexp-to-string (query)
