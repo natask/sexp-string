@@ -40,8 +40,7 @@
 ;;; Code:
 (defun sexp-string--predicate-names (predicates)
   "Get predicate names for PREDICATES."
-  (let* (
-         (names (--map (symbol-name (plist-get (cdr it) :name))
+  (let* ((names (--map (symbol-name (or (plist-get (cdr it) :name) (car it)))
                        predicates))
          (aliases (->> predicates
                        (--map (plist-get (cdr it) :aliases))
@@ -100,9 +99,10 @@ E.g.
                  (positive-term (or
                                     (and predicate-with-args `(pred args -- (cons (intern pred) args)))
                                     (and predicate-without-args `(pred -- (list (intern pred))))
-                                    (and plain-string `(s -- (list default-predicate s)))))
-                 (predicate-with-args (substring predicate) ":" args)
-                 (predicate-without-args (substring predicate) ":")
+                                    (and plain-string `(s -- (list (intern (sexp-string--replace-alias-with-name predicates (symbol-name default-predicate))) s)))))
+                 (predicate-with-args (and predicate-shown ":" args))
+                 (predicate-without-args (and predicate-shown ":"))
+                 (predicate-shown (and (substring predicate) `(pred -- (sexp-string--replace-alias-with-name predicates pred))))
                  (predicate (or ,@(sexp-string--predicate-names (reverse predicates))))
                  (args (list arg (* (or (and and-separator arg `(a b -- (list 'and a b)))
                                   (and or-separator arg `(a b -- (list 'or a b)))))))
@@ -150,9 +150,10 @@ Is interpreted verbatim."
                  (positive-term (or
                                     (and predicate-with-args `(pred args -- (cons (intern pred) args)))
                                     (and predicate-without-args `(pred -- (list (intern pred))))
-                                    (and plain-string `(s -- (cons default-predicate s)))))
-                 (predicate-with-args (substring predicate) ":" args)
-                 (predicate-without-args (substring predicate) ":")
+                                    (and plain-string `(s -- (cons (intern (sexp-string--replace-alias-with-name predicates (symbol-name default-predicate))) s)))))
+                 (predicate-with-args (and predicate-shown ":" args))
+                 (predicate-without-args (and predicate-shown ":"))
+                 (predicate-shown (and (substring predicate) `(pred -- (sexp-string--replace-alias-with-name predicates pred))))
                  (predicate (or ,@(sexp-string--predicate-names (reverse predicates))))
                  (args (list (+ (and (or keyword-arg quoted-arg unquoted-arg) (opt separator)))))
                  (keyword-arg (and keyword "=" `(kw -- (intern (concat ":" kw)))))
@@ -174,21 +175,21 @@ Is interpreted verbatim."
                  (_ (+ [" \t"]))
                  (eol (or  "\n" "\r\n" "\r"))))
 
-(cl-defun sexp-string--query-string-to-sexp (&key input predicates default-predicate default-boolean pexs-function)
+(cl-defun sexp-string--query-string-to-sexp (&key input predicates default-predicate default-boolean pex-function)
   "Parse string INPUT based upon PREDICATES.
 
-predicates        -> list of predicates
+PREDICATES        -> list of predicates
 DEFAULT-PREDICATE -> default predicate
 DEFAULT-BOOLEAN   -> default boolean
-PEXS-FUNCTION     -> function to parse input
+PEX-FUNCTION      -> function to return pexs template with which to parse INPUT
 
 Borrowed from `org-ql'."
   (unless (string-empty-p input)
     (when-let* ((default-boolean (or default-boolean 'and))
                 (predicates predicates)
                 (default-predicate (or default-predicate (car (-last-item predicates))))
-                (pexs-function (or pexs-function 'sexp-string--custom-pexs))
-                (pexs (funcall pexs-function predicates))
+                (pex-function (or pex-function 'sexp-string--custom-pexs))
+                (pexs (funcall pex-function predicates))
                 (parsed-sexp
                  (with-temp-buffer
                    (insert input)
@@ -200,11 +201,24 @@ Borrowed from `org-ql'."
                    ;; have to borrow some code.  It ends up that we only have to
                    ;; borrow this `with-peg-rules' call, which isn't too bad.
                    (eval `(with-peg-rules ,pexs
-                            (peg-run (peg ,(caar pexs)) #'peg-signal-failure)) (list (cons 'default-boolean default-boolean) (cons 'default-predicate default-predicate))))))
+                            (peg-run (peg ,(caar pexs)) #'peg-signal-failure)) (list (cons 'predicates predicates) (cons 'default-boolean default-boolean) (cons 'default-predicate default-predicate))))))
       (pcase parsed-sexp
         (`(,_) (->> (car parsed-sexp)
                     sexp-string-collapse-list))
         (_ nil)))))
+
+(defun sexp-string--replace-alias-with-name (predicates predicate)
+  "Replace an :aliases PREDICATE with its :name counterpart based on PREDICATES.
+In the future can do on directly on the input string."
+  (let* ((names (--map (symbol-name (or (plist-get (cdr it) :name) (car it)))
+                       predicates))
+         (aliases-map (->> predicates
+                       (--map (cons (or (plist-get (cdr it) :name) (car it)) (plist-get (cdr it) :aliases)))
+                       (--filter (and (car it) (cdr it)))
+                       (--map (cons (symbol-name (car it)) (-map #'symbol-name (cdr it)))))))
+    (if (--find (equal predicate it) names)
+        predicate
+    (car (--find (--find (equal predicate it) (cdr it)) aliases-map)))))
 
 (defun sexp-string--define-transform-query-fn (library-name type)
   "Return query transformation for LIBRARY-NAME against TYPE.

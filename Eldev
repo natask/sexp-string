@@ -1,0 +1,7 @@
+; -*- mode: emacs-lisp; lexical-binding: t -*-
+
+;; explicitly set main file
+(setf eldev-project-main-file "sexp-string.el")
+
+;; Autodetermined by `eldev init'.
+(eldev-use-package-archive 'gnu)
