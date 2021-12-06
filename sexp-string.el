@@ -9,7 +9,7 @@
 ;; Version: 0.0.1
 ;; Keywords: tools matching alternate-syntax
 ;; Homepage: https://github.com/savnkk/sexp-string
-;; Package-Requires: ((emacs "25.1") (peg))
+;; Package-Requires: ((emacs "25.1") (peg) (dash))
 ;;
 ;; This file is not part of GNU Emacs.
 ;;
@@ -174,37 +174,37 @@ Is interpreted verbatim."
                  (_ (+ [" \t"]))
                  (eol (or  "\n" "\r\n" "\r"))))
 
-(defun sexp-string--define-query-string-to-sexp (&keys input predicates default-predicate default-boolean pexs-function)
-  "Parse string INPUT based upon
+(cl-defun sexp-string--query-string-to-sexp (&key input predicates default-predicate default-boolean pexs-function)
+  "Parse string INPUT based upon PREDICATES.
 
 predicates        -> list of predicates
-default-predicate -> default predicate
-default-boolean   -> default boolean
-
+DEFAULT-PREDICATE -> default predicate
+DEFAULT-BOOLEAN   -> default boolean
+PEXS-FUNCTION     -> function to parse input
 
 Borrowed from `org-ql'."
-  (let* ((unless (string-empty-p input)
-           (let* ((default-boolean (or boolean (symbol-value default-boolean) 'and))
-                  (predicates (symbol-value predicates))
-                  (default-predicate (or (symbol-value default-predicate) (car (-last-item predicates))))
-                  (pexs (or (symbol-value pexs) 'sexp-string--custom-pexs))
-                  (pexs (funcall pexs predicates))
-                  (parsed-sexp
-                   (with-temp-buffer
-                     (insert input)
-                     (goto-char (point-min))
-                     ;; Copied from `peg-parse'.  There is no function in `peg' that
-                     ;; returns a matcher function--every entry point is a macro,
-                     ;; which means that, since we define our PEG rules at runtime when
-                     ;; predicate-names are defined, we either have to use `eval', or we
-                     ;; have to borrow some code.  It ends up that we only have to
-                     ;; borrow this `with-peg-rules' call, which isn't too bad.
-                     (eval `(with-peg-rules ,pexs
-                              (peg-run (peg ,(caar pexs)) #'peg-signal-failure)) (list (cons 'default-predicate default-predicate) (cons 'default-boolean default-boolean))))))
-             (pcase parsed-sexp
-               (`(,_) (->> `,(backquote ,(car parsed-sexp))
-                           sexp-string-collapse-list))
-               (_ nil)))))))
+  (unless (string-empty-p input)
+    (when-let* ((default-boolean (or default-boolean 'and))
+                (predicates predicates)
+                (default-predicate (or default-predicate (car (-last-item predicates))))
+                (pexs-function (or pexs-function 'sexp-string--custom-pexs))
+                (pexs (funcall pexs-function predicates))
+                (parsed-sexp
+                 (with-temp-buffer
+                   (insert input)
+                   (goto-char (point-min))
+                   ;; Copied from `peg-parse'.  There is no function in `peg' that
+                   ;; returns a matcher function--every entry point is a macro,
+                   ;; which means that, since we define our PEG rules at runtime when
+                   ;; predicate-names are defined, we either have to use `eval', or we
+                   ;; have to borrow some code.  It ends up that we only have to
+                   ;; borrow this `with-peg-rules' call, which isn't too bad.
+                   (eval `(with-peg-rules ,pexs
+                            (peg-run (peg ,(caar pexs)) #'peg-signal-failure)) (list (cons 'default-boolean default-boolean) (cons 'default-predicate default-predicate))))))
+      (pcase parsed-sexp
+        (`(,_) (->> (car parsed-sexp)
+                    sexp-string-collapse-list))
+        (_ nil)))))
 
 (defun sexp-string--define-transform-query-fn (library-name type)
   "Return query transformation for LIBRARY-NAME against TYPE.
