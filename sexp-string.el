@@ -233,8 +233,7 @@ Borrowed from `org-ql'."
         (query (if ignore
                    (let ((filter-predicates (->> predicates
                                                  (--filter (plist-get (cdr it) type))
-                                                 (--map (or (plist-get (cdr it) :name) (car it)))
-                                                 (symbol-name))))
+                                                 (--map (or (plist-get (cdr it) :name) (car it))))))
                    (sexp-string--filter-predicates query filter-predicates))
                  query)))
     (->> (eval
@@ -256,8 +255,7 @@ PREDICATES not within FILTER-PREDICATES are filtered out from QUERY."
   (mapcan (lambda (element) (pcase element
                           (`(,(and predicate (guard (member predicate filter-predicates))) . ,rest) (pcase (sexp-string--filter-predicates-helper rest filter-predicates)
                                                                                                       ((and res (guard (= (length res)  0))) 'nil)
-                                                                                                      ((and res (guard (= (length res)  1))) res)
-                                                                                                      ((and res (guard (> (length res)  1))) (list (cons predicate res)))))
+                                                                                                      ((and res (guard (>= (length res)  1))) (list (cons predicate res)))))
                           (`(,(and predicate (guard (not (member predicate filter-predicates)))) . ,rest) 'nil)
                           (_ (list element))))
            query))
