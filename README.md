@@ -45,23 +45,24 @@ The key functions are
 
 # Features
 ## Custom pexs 
-two syntaxs are currently support.
+Two syntaxs are currently supported.
 org-ql like syntax called `sexp-string--custom-pexs`.
-`,` between args after predicates is `and`.
-`` `or`` is `or`.
-`` `and`` is `and`.
-`` `(`)`` are brackets.
-`!` is negation.
+- `,` between args after predicates is `and`.
+- `` `or`` is `or`.
+- `` `and`` is `and`.
+- `` `(`)`` are brackets.
+- `!` is negation.
 - **E.g**
 ``"tag:tag1,tag2 title:title1,title2 query1 query2 `or `(query3 `and query4   `) query5 (to be, or not to be? to not be!)"``
 
 recoll like syntax called `sexp-string--recoll-pexs`. 
-`,` between args in predicates is `and`.
-`/` between args in predicates is `or`.
-`OR` is `or`.
-`AND` is `and`.
-`()` are brackets.
-`-` is negation.
+
+- `,` between args in predicates is `and`.
+- `/` between args in predicates is `or`.
+- `OR` is `or`.
+- `AND` is `and`.
+- `()` are brackets.
+- `-` is negation.
 - **E.g**
 ``"tag:tag1,tag2/tag3 OR title:title1,title2 query1 query2 OR (query3 AND query4) query5 \"(to be, or not to be? to not be!)\""``
 
@@ -71,5 +72,6 @@ Look at `sexp-string--custom-pexs` to define your own.
 - [org-roam-search](https://github.com/natask/org-roam-search/).
 - [firefox-search](https://github.com/natask/firefox-search/).
 - [delve-show](https://github.com/natask/delve-show/).
+
 I know I know, these are all my packages. I don't know any one that uses this package yet. 
 
