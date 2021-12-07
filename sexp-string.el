@@ -56,7 +56,7 @@
     predicate-names))
 
 (defun sexp-string-collapse-list (lt)
-"Recursively collapse list starting with LT.
+  "Recursively collapse list starting with LT.
 If first of inner list is `equal' to first element of outer list.
 Assumes that car of LT is an operator: one of `and' or `or'.
 E.g.
@@ -71,57 +71,57 @@ E.g.
      (or v5
         (and v6 v7))
      v8)"
- (sexp-string--collapse-list lt (car lt)))
+  (sexp-string--collapse-list lt (car lt)))
 
 (defun sexp-string--collapse-list (lt op)
   "Helper function of `sexp-string-collapse-list' where LT is current list and OP is first element of outer list."
   (mapcan (lambda (val) (pcase val
-            (`(,(and op2 (guard (equal op op2))) . ,rest) (sexp-string--collapse-list rest op))
-            ((pred listp) (list (if (member (car val) '(and or))
-                                        (sexp-string--collapse-list val (car val))
-                                    (sexp-string--collapse-list val 'nil))))
-            (_ (list val))))
-           lt))
+                          (`(,(and op2 (guard (equal op op2))) . ,rest) (sexp-string--collapse-list rest op))
+                          ((pred listp) (list (if (member (car val) '(and or))
+                                                  (sexp-string--collapse-list val (car val))
+                                                (sexp-string--collapse-list val 'nil))))
+                          (_ (list val))))
+          lt))
 
 (defun sexp-string--recoll-pexs (predicates)
   "Implementation of recoll's search syntax on PREDICATES."
- `((query sum (opt eol))
-                 (sum value  (* (or (and _ and-op _ value `(a b -- (list 'and a b)))
-                                    (and _ or-op _ value `(a b -- (list 'or a b)))
-                                    (and _ value `(a b -- (list default-boolean a b))))))
-                 (value
-                  (or (and "(" (opt _) sum (opt _) ")")
-                      term))
-                 (term (or (and negation (list positive-term)
-                                ;; This is a bit confusing, but it seems to work.  There's probably a better way.
-                                `(pred -- (list 'not (car pred))))
-                           positive-term))
-                 (positive-term (or
-                                    (and predicate-with-args `(pred args -- (cons (intern pred) args)))
-                                    (and predicate-without-args `(pred -- (list (intern pred))))
-                                    (and plain-string `(s -- (list (intern (sexp-string--replace-alias-with-name predicates (symbol-name default-predicate))) s)))))
-                 (predicate-with-args (and predicate-shown ":" args))
-                 (predicate-without-args (and predicate-shown ":"))
-                 (predicate-shown (and (substring predicate) `(pred -- (sexp-string--replace-alias-with-name predicates pred))))
-                 (predicate (or ,@(sexp-string--predicate-names (reverse predicates))))
-                 (args (list arg (* (or (and and-separator arg `(a b -- (list 'and a b)))
-                                  (and or-separator arg `(a b -- (list 'or a b)))))))
-                 (arg (or keyword-arg quoted-arg unquoted-arg))
-                 (keyword-arg (and keyword "=" `(kw -- (intern (concat ":" kw)))))
-                 (keyword (substring (+ (not (or brackets separator "=" "\"" (syntax-class whitespace))) (any))))
-                 (quoted-arg "\"" (substring (+ (not "\"") (any))) "\"")
-                 (unquoted-arg (substring (+ (not (or brackets separator "\"" (syntax-class whitespace))) (any))))
-                 (plain-string (or unquoted-arg quoted-arg separator))
-                 (operator (or and-op or-op))
-                 (separator (or or-separator and-separator))
-                 (negation "-")
-                 (or-separator "/")
-                 (and-separator ",")
-                 (and-op "AND")
-                 (or-op "OR")
-                 (brackets (or "(" ")"))
-                 (_ (+ [" \t"]))
-                 (eol (or  "\n" "\r\n" "\r"))))
+  `((query sum (opt eol))
+    (sum value  (* (or (and _ and-op _ value `(a b -- (list 'and a b)))
+                       (and _ or-op _ value `(a b -- (list 'or a b)))
+                       (and _ value `(a b -- (list default-boolean a b))))))
+    (value
+     (or (and "(" (opt _) sum (opt _) ")")
+         term))
+    (term (or (and negation (list positive-term)
+                   ;; This is a bit confusing, but it seems to work.  There's probably a better way.
+                   `(pred -- (list 'not (car pred))))
+              positive-term))
+    (positive-term (or
+                    (and predicate-with-args `(pred args -- (cons (intern pred) args)))
+                    (and predicate-without-args `(pred -- (list (intern pred))))
+                    (and plain-string `(s -- (list (intern (sexp-string--replace-alias-with-name predicates (symbol-name default-predicate))) s)))))
+    (predicate-with-args (and predicate-shown ":" args))
+    (predicate-without-args (and predicate-shown ":"))
+    (predicate-shown (and (substring predicate) `(pred -- (sexp-string--replace-alias-with-name predicates pred))))
+    (predicate (or ,@(sexp-string--predicate-names (reverse predicates))))
+    (args (list arg (* (or (and and-separator arg `(a b -- (list 'and a b)))
+                           (and or-separator arg `(a b -- (list 'or a b)))))))
+    (arg (or keyword-arg quoted-arg unquoted-arg))
+    (keyword-arg (and keyword "=" `(kw -- (intern (concat ":" kw)))))
+    (keyword (substring (+ (not (or brackets separator "=" "\"" (syntax-class whitespace))) (any))))
+    (quoted-arg "\"" (substring (+ (not "\"") (any))) "\"")
+    (unquoted-arg (substring (+ (not (or brackets separator "\"" (syntax-class whitespace))) (any))))
+    (plain-string (or unquoted-arg quoted-arg separator))
+    (operator (or and-op or-op))
+    (separator (or or-separator and-separator))
+    (negation "-")
+    (or-separator "/")
+    (and-separator ",")
+    (and-op "AND")
+    (or-op "OR")
+    (brackets (or "(" ")"))
+    (_ (+ [" \t"]))
+    (eol (or  "\n" "\r\n" "\r"))))
 
 (defun sexp-string--custom-pexs (predicates)
   "Custom pexs that focuses on plain entries based on PREDICATES.
@@ -136,44 +136,44 @@ For example, the following entry
 that would, when parsed normally, conflict with pex rules\"
 
 Is interpreted verbatim."
- `((query sum (opt eol))
-                 (sum value  (* (or (and _ and-op _ value `(a b -- (list 'and a b)))
-                                    (and _ or-op _ value `(a b -- (list 'or a b)))
-                                    (and _ value `(a b -- (list default-boolean a b))))))
-                 (value
-                  (or (and "`(" (opt _) sum (opt _) "`)")
-                      term))
-                 (term (or (and negation (list positive-term)
-                                ;; This is a bit confusing, but it seems to work.  There's probably a better way.
-                                `(pred -- (list 'not (car pred))))
-                           positive-term))
-                 (positive-term (or
-                                    (and predicate-with-args `(pred args -- (cons (intern pred) args)))
-                                    (and predicate-without-args `(pred -- (list (intern pred))))
-                                    (and plain-string `(s -- (cons (intern (sexp-string--replace-alias-with-name predicates (symbol-name default-predicate))) s)))))
-                 (predicate-with-args (and predicate-shown ":" args))
-                 (predicate-without-args (and predicate-shown ":"))
-                 (predicate-shown (and (substring predicate) `(pred -- (sexp-string--replace-alias-with-name predicates pred))))
-                 (predicate (or ,@(sexp-string--predicate-names (reverse predicates))))
-                 (args (list (+ (and (or keyword-arg quoted-arg unquoted-arg) (opt separator)))))
-                 (keyword-arg (and keyword "=" `(kw -- (intern (concat ":" kw)))))
-                 (keyword (substring (+ (not (or brackets brackets2 separator "=" "\"" (syntax-class whitespace))) (any))))
-                 (quoted-arg "\"" (substring (+ (not "\"") (any))) "\"")
-                 (unquoted-arg (substring (+ (not (or brackets brackets2 separator "\"" (syntax-class whitespace))) (any))))
-                 (limited-unquoted-arg (substring (+ (not (or brackets brackets2 separator symbols negation "\"" (syntax-class whitespace))) (any))))
-                 (plain-string (list (+ (and (or (substring separator) (substring negation) (substring symbols) (substring brackets) limited-unquoted-arg quoted-arg) (not operator brackets2)))))
+  `((query sum (opt eol))
+    (sum value  (* (or (and _ and-op _ value `(a b -- (list 'and a b)))
+                       (and _ or-op _ value `(a b -- (list 'or a b)))
+                       (and _ value `(a b -- (list default-boolean a b))))))
+    (value
+     (or (and "`(" (opt _) sum (opt _) "`)")
+         term))
+    (term (or (and negation (list positive-term)
+                   ;; This is a bit confusing, but it seems to work.  There's probably a better way.
+                   `(pred -- (list 'not (car pred))))
+              positive-term))
+    (positive-term (or
+                    (and predicate-with-args `(pred args -- (cons (intern pred) args)))
+                    (and predicate-without-args `(pred -- (list (intern pred))))
+                    (and plain-string `(s -- (cons (intern (sexp-string--replace-alias-with-name predicates (symbol-name default-predicate))) s)))))
+    (predicate-with-args (and predicate-shown ":" args))
+    (predicate-without-args (and predicate-shown ":"))
+    (predicate-shown (and (substring predicate) `(pred -- (sexp-string--replace-alias-with-name predicates pred))))
+    (predicate (or ,@(sexp-string--predicate-names (reverse predicates))))
+    (args (list (+ (and (or keyword-arg quoted-arg unquoted-arg) (opt separator)))))
+    (keyword-arg (and keyword "=" `(kw -- (intern (concat ":" kw)))))
+    (keyword (substring (+ (not (or brackets brackets2 separator "=" "\"" (syntax-class whitespace))) (any))))
+    (quoted-arg "\"" (substring (+ (not "\"") (any))) "\"")
+    (unquoted-arg (substring (+ (not (or brackets brackets2 separator "\"" (syntax-class whitespace))) (any))))
+    (limited-unquoted-arg (substring (+ (not (or brackets brackets2 separator symbols negation "\"" (syntax-class whitespace))) (any))))
+    (plain-string (list (+ (and (or (substring separator) (substring negation) (substring symbols) (substring brackets) limited-unquoted-arg quoted-arg) (not operator brackets2)))))
 
-                 (negation "!")
-                 (symbols (or "?" "."))
-                 (separator "," )
-                 (operator (or and-op or-op))
-                 (and-op "`and")
-                 (or-op "`or")
-                 (operator (or "`and" "`or"))
-                 (brackets (or "(" ")"))
-                 (brackets2 (or "`(" "`)"))
-                 (_ (+ [" \t"]))
-                 (eol (or  "\n" "\r\n" "\r"))))
+    (negation "!")
+    (symbols (or "?" "."))
+    (separator "," )
+    (operator (or and-op or-op))
+    (and-op "`and")
+    (or-op "`or")
+    (operator (or "`and" "`or"))
+    (brackets (or "(" ")"))
+    (brackets2 (or "`(" "`)"))
+    (_ (+ [" \t"]))
+    (eol (or  "\n" "\r\n" "\r"))))
 
 (cl-defun sexp-string--query-string-to-sexp (&key input predicates default-predicate default-boolean pex-function)
   "Parse string INPUT based upon PREDICATES.
@@ -213,12 +213,12 @@ In the future can do on directly on the input string."
   (let* ((names (--map (symbol-name (or (plist-get (cdr it) :name) (car it)))
                        predicates))
          (aliases-map (->> predicates
-                       (--map (cons (or (plist-get (cdr it) :name) (car it)) (plist-get (cdr it) :aliases)))
-                       (--filter (and (car it) (cdr it)))
-                       (--map (cons (symbol-name (car it)) (-map #'symbol-name (cdr it)))))))
+                           (--map (cons (or (plist-get (cdr it) :name) (car it)) (plist-get (cdr it) :aliases)))
+                           (--filter (and (car it) (cdr it)))
+                           (--map (cons (symbol-name (car it)) (-map #'symbol-name (cdr it)))))))
     (if (--find (equal predicate it) names)
         predicate
-    (car (--find (--find (equal predicate it) (cdr it)) aliases-map)))))
+      (car (--find (--find (equal predicate it) (cdr it)) aliases-map)))))
 
 (cl-defun sexp-string--transform-query (&key query predicates type ignore)
   "Return transformed form of QUERY based on PREDICATES against TYPE.
@@ -253,12 +253,12 @@ PREDICATES not within FILTER-PREDICATES are filtered out from QUERY."
 (defun sexp-string--filter-predicates-helper (query filter-predicates)
   "Filter QUERY by FILTER-PREDICATES helper."
   (mapcan (lambda (element) (pcase element
-                          (`(,(and predicate (guard (member predicate filter-predicates))) . ,rest) (pcase (sexp-string--filter-predicates-helper rest filter-predicates)
-                                                                                                      ((and res (guard (= (length res)  0))) 'nil)
-                                                                                                      ((and res (guard (>= (length res)  1))) (list (cons predicate res)))))
-                          (`(,(and predicate (guard (not (member predicate filter-predicates)))) . ,rest) 'nil)
-                          (_ (list element))))
-           query))
+                              (`(,(and predicate (guard (member predicate filter-predicates))) . ,rest) (pcase (sexp-string--filter-predicates-helper rest filter-predicates)
+                                                                                                          ((and res (guard (= (length res)  0))) 'nil)
+                                                                                                          ((and res (guard (>= (length res)  1))) (list (cons predicate res)))))
+                              (`(,(and predicate (guard (not (member predicate filter-predicates)))) . ,rest) 'nil)
+                              (_ (list element))))
+          query))
 
 (defun sexp-string--query-sexp-to-string (query)
   "Return a string query for sexp QUERY.
