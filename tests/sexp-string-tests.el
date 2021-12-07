@@ -185,11 +185,18 @@
          (type :transform)
          (query `(and (second "hello" "best") (first "here" "how")))
          (args (list :predicates predicates :type type :ignore 't)))
+
     (it "works"
       (let* ((query (apply 'sexp-string--transform-query (append `(:query ,query) args))))
         (expect query
                 :to-equal
-                '(and (s-t "%hello%" "%best%") (f-t "%here%" "%how%")))))))
+                '(and (s-t "%hello%" "%best%") (f-t "%here%" "%how%")))))
+
+    (it "works input nil"
+      (let* ((query (apply 'sexp-string--transform-query args)))
+        (expect query
+                :to-equal
+                'nil)))))
 
 (describe "sexp-string--filter-predicates"
   (let* ((predicates '((or  :name or :transform)
