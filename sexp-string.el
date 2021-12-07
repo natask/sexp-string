@@ -6,7 +6,7 @@
 ;; Maintainer: Natnael Kahssay <thisnkk@gmail.com>
 ;; Created: August 26, 2021
 ;; Modified: August 26, 2021
-;; Version: 0.0.1
+;; Version: 0.0.2
 ;; Keywords: tools matching alternate-syntax
 ;; Homepage: https://github.com/savnkk/sexp-string
 ;; Package-Requires: ((emacs "25.1") (peg) (dash))
@@ -227,15 +227,15 @@ PREDICATES list of predicates.
 TYPE is as a plist key defined for each predicate in PREDICATES.
 If IGNORE, ignore elements of query that don't have TYPE defined in PREDICATE.
 Borrowed from `org-ql'."
-  (let ((transformer-patterns (->> predicates
-                                   (--map (plist-get (cdr it) type))
-                                   (-flatten-n 1)))
-        (query (if ignore
-                   (let ((filter-predicates (->> predicates
-                                                 (--filter (plist-get (cdr it) type))
-                                                 (--map (or (plist-get (cdr it) :name) (car it))))))
-                   (sexp-string--filter-predicates query filter-predicates))
-                 query)))
+  (when-let ((transformer-patterns (->> predicates
+                                        (--map (plist-get (cdr it) type))
+                                        (-flatten-n 1)))
+             (query (if ignore
+                        (let ((filter-predicates (->> predicates
+                                                      (--filter (plist-get (cdr it) type))
+                                                      (--map (or (plist-get (cdr it) :name) (car it))))))
+                          (sexp-string--filter-predicates query filter-predicates))
+                      query)))
     (->> (eval
           `(cl-labels ((rec (element &optional accum)
                             (ignore accum)
