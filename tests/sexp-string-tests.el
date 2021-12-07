@@ -171,5 +171,50 @@
     ;; TODO: for any format
     (it "for any format")))
 
+(describe "sexp-string--transform-query"
+  (let* ((predicates '((or  :name or :transform)
+                       (and :name and :transform ((`(and . ,rest) `(a-t . ,(mapcar #'rec rest)))))
+                       (not :name not :transform )
+                       (second :name second :aliases (2nd) :transform ((`(second . ,rest) `(s-t . ,(mapcar #'rec rest)))))
+                       (first :name first :aliases (1st) :transform ((`(first . ,rest) `(f-t . ,(mapcar #'rec rest)))))
+                       (string :name string :transform (((pred stringp) (concat "%" element "%"))))))
+         (type :transform)
+         (query `(and (second "hello" "best") (first "here" "how")))
+         (args (list :predicates predicates :type type)))
+    (it "works"
+      (let* ((query (apply 'sexp-string--transform-query (append `(:query ,query) args))))
+        (expect query
+                :to-equal
+                '(a-t (s-t "%hello%" "%best%") (f-t "%here%" "%how%")))))))
+
+(describe "sexp-string--filter-predicates"
+  (let* ((predicates '((or  :name or :transform)
+                       (and :name and :transform 3)
+                       (not :name not :transform 3)
+                       (second :name second :aliases (2nd) :transform 5)
+                       (first :name first :aliases (1st))))
+         (type :transform)
+         (filter-predicates (->> predicates
+                                 (--filter (plist-get (cdr it) type))
+                                 (--map (or (plist-get (cdr it) :name) (car it)))))
+         (default-predicate 'first)
+         (default-boolean 'and)
+         (args (list :predicates predicates :default-predicate default-predicate :default-boolean default-boolean)))
+    (it "works"
+      (let* ((arg1 "!first:world,here second:hello,best")
+             (query (apply 'sexp-string--query-string-to-sexp (append `(:input ,arg1) args)))
+             (res (sexp-string--filter-predicates query filter-predicates)))
+        (expect res
+                :to-equal
+                '(second "hello" "best"))))
+
+    (it "doesn't affect reduced ones"
+      (let* ((arg1 "2nd:world,here second:hello,best")
+             (query (apply 'sexp-string--query-string-to-sexp (append `(:input ,arg1) args)))
+             (res (sexp-string--filter-predicates query filter-predicates)))
+        (expect res
+                :to-equal
+                query)))))
+
 (provide 'sexp-string-tests)
 ;;; sexp-string-tests.el ends here

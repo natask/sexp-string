@@ -220,28 +220,47 @@ In the future can do on directly on the input string."
         predicate
     (car (--find (--find (equal predicate it) (cdr it)) aliases-map)))))
 
-(defun sexp-string--define-transform-query-fn (library-name type)
-  "Return query transformation for LIBRARY-NAME against TYPE.
-TYPE is as a plist key defined for each predicate in `library-name'-predicates.
+(cl-defun sexp-string--transform-query (&key query predicates type ignore)
+  "Return transformed form of QUERY based on PREDICATES against TYPE.
+QUERY is the output of `sexp-string--string-to-sexp'.
+PREDICATES list of predicates.
+TYPE is as a plist key defined for each predicate in PREDICATES.
+If IGNORE, ignore elements of query that don't have TYPE defined in PREDICATE.
 Borrowed from `org-ql'."
-  (let* ((predicates (intern-soft (concat library-name "-predicates")))
-         (closure  `(lambda (query)
-                      "Return transformed form of QUERY expression.
-This function is defined by calling
-`sexp-string--define-transform-query-fn', which uses transformr forms
-defined in `sexp-string-predicates' by calling `sexp-string-defpred'."
-                      (let ((transformer-patterns (->> ,predicates
-                                                       (--map (plist-get (cdr it) ,type))
-                                                       (-flatten-n 1))))
-                        (->> (eval
-                              `(cl-labels ((rec (element &optional accum)
-                                                (ignore accum)
-                                                (pcase element
-                                                  ,@transformer-patterns
-                                                  (_ (error "Element didn't match transformer: %S" element)))))
-                                 (rec query)) (list (cons 'transformer-patterns transformer-patterns) (cons 'query query)))
-                             (sexp-string-collapse-list))))))
-    (byte-compile closure)))
+  (let ((transformer-patterns (->> predicates
+                                   (--map (plist-get (cdr it) type))
+                                   (-flatten-n 1)))
+        (query (if ignore
+                   (let ((filter-predicates (->> predicates
+                                                 (--filter (plist-get (cdr it) type))
+                                                 (--map (or (plist-get (cdr it) :name) (car it)))
+                                                 (symbol-name))))
+                   (sexp-string--filter-predicates query filter-predicates))
+                 query)))
+    (->> (eval
+          `(cl-labels ((rec (element &optional accum)
+                            (ignore accum)
+                            (pcase element
+                              ,@transformer-patterns
+                              (_ (error "Element didn't match transformer: %S" element)))))
+             (rec query)) (list (cons 'transformer-patterns transformer-patterns) (cons 'query query)))
+         (sexp-string-collapse-list))))
+
+(defun sexp-string--filter-predicates (query filter-predicates)
+  "Filter QUERY by FILTER-PREDICATES.
+PREDICATES not within FILTER-PREDICATES are filtered out from QUERY."
+  (car (sexp-string--filter-predicates-helper (list query) filter-predicates)))
+
+(defun sexp-string--filter-predicates-helper (query filter-predicates)
+  "Filter QUERY by FILTER-PREDICATES helper."
+  (mapcan (lambda (element) (pcase element
+                          (`(,(and predicate (guard (member predicate filter-predicates))) . ,rest) (pcase (sexp-string--filter-predicates-helper rest filter-predicates)
+                                                                                                      ((and res (guard (= (length res)  0))) 'nil)
+                                                                                                      ((and res (guard (= (length res)  1))) res)
+                                                                                                      ((and res (guard (> (length res)  1))) (list (cons predicate res)))))
+                          (`(,(and predicate (guard (not (member predicate filter-predicates)))) . ,rest) 'nil)
+                          (_ (list element))))
+           query))
 
 (defun sexp-string--query-sexp-to-string (query)
   "Return a string query for sexp QUERY.
