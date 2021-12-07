@@ -55,7 +55,7 @@ org-ql like syntax called `sexp-string--custom-pexs`.
 - **E.g**
 ``"tag:tag1,tag2 title:title1,title2 query1 query2 `or `(query3 `and query4   `) query5 (to be, or not to be? to not be!)"``
 
-recoll like syntax called `sexp-string--recoll-pexs`. 
+recoll like syntax (also Notmuch (Xapian) and Xesam) called `sexp-string--recoll-pexs`. 
 
 - `,` between args in predicates is `and`.
 - `/` between args in predicates is `or`.
