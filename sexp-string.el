@@ -242,8 +242,7 @@ Borrowed from `org-ql'."
                             (pcase element
                               ,@transformer-patterns
                               (_ (error "Element didn't match transformer: %S" element)))))
-             (rec query)) (list (cons 'transformer-patterns transformer-patterns) (cons 'query query)))
-         (sexp-string-collapse-list))))
+             (rec query)) (list (cons 'transformer-patterns transformer-patterns) (cons 'query query))))))
 
 (defun sexp-string--filter-predicates (query filter-predicates)
   "Filter QUERY by FILTER-PREDICATES.
